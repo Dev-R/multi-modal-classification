@@ -1,0 +1,10 @@
+
+  Id     Duration CommandLine
+  --     -------- -----------
+   1        0.006 cd C:\Users\RabiA\OneDrive\Desktop\Git\playground\python\ML\video-classification-CNN
+   2        0.173 env/scripts/activate
+   3        0.040 venv/scripts/activate
+   4 35:55:39.177 python action.py
+   5 24:46:33.282 python action.py
+   6        0.031 echo history
+
