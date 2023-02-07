@@ -6,12 +6,7 @@ from azure.storage.blob import (
 )
 
 
-AZURE_STORGE_ACCOUNT = "multimodalmedia "
-VIDEO_CONTAINER_NAME = "video-uploads"
-IMAGE_CONTAINER_NAME = "ima-uploads"
-
-# connect_str = os.getenv('AZURE_STORAGE_CONNECTION_STRING')
-connect_str = ""
+from ..constants import Config
 
 
 def get_media_path(img_name) -> str:
@@ -38,12 +33,14 @@ def upload_blob(filename: str, is_video: bool) -> str:
     Raises:
         Exception: If an error occurs during the upload.
     """
-    container_name = IMAGE_CONTAINER_NAME
+    container_name = Config.IMAGE_CONTAINER_NAME
     if is_video:
-        container_name = VIDEO_CONTAINER_NAME
+        container_name = Config.VIDEO_CONTAINER_NAME
     try:
         # Create the BlobServiceClient object which will be used to create a container client
-        blob_service_client = BlobServiceClient.from_connection_string(connect_str)
+        blob_service_client = BlobServiceClient.from_connection_string(
+            Config.CONNECT_STR
+        )
         upload_file_path = get_media_path(filename)
         # Create a blob client using the local file name as the name for the blob
         blob_client = blob_service_client.get_blob_client(
@@ -55,7 +52,7 @@ def upload_blob(filename: str, is_video: bool) -> str:
         # return file blob url
         file_url = (
             "https://"
-            + AZURE_STORGE_ACCOUNT
+            + Config.AZURE_STORGE_ACCOUNT
             + ".blob.core.windows.net"
             + "/"
             + container_name
