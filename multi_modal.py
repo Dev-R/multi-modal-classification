@@ -5,6 +5,10 @@ import cv2
 import numpy as np
 import pyaudio
 import matplotlib.pyplot as plt
+import logging
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 # importing libraries for video classification
 from moviepy.editor import *
@@ -20,44 +24,121 @@ from helpers.apis.azure_blob import upload_blob
 from helpers.apis.twilio_api import notify_owner
 from tqdm import tqdm
 import helpers.helpers as helpers
-from helpers.constants import ActionRecognition, AudioRecognition, ObjectDetection, Config
+from helpers.constants import (
+    ActionRecognition,
+    AudioRecognition,
+    ObjectDetection,
+    Config,
+)
 
 
 NOTIFICATION_ON_GOING = False
+from typing import Dict, Union
+
+# Define a type alias to represent the values in the anomaly info dictionary
+AnomalyInfo = Dict[str, Union[bool, str]]
+
+# The dictionary constant to store the anomaly information
 ANOMALY_DICT = {
-    "video_anomaly": {"is_anomaly": False, "name": None, "video_clip_url": None},
-    "audio_anomaly": {"is_anomaly": False, "name": "N/A"},
-    "SISR": {"frame_exists": False, "enhanced_frame_url": ""},
-    "SMS": {"phone_number": None, "message": None},
+    "video_anomaly": {
+        "is_anomaly": False,  # Whether a video anomaly has been detected
+        "name": None,  # The name of the video anomaly
+        "video_clip_url": None,  # The URL of the video clip where the anomaly was detected
+    },
+    "audio_anomaly": {
+        "is_anomaly": False,  # Whether an audio anomaly has been detected
+        "name": "N/A",  # The name of the audio anomaly
+        "audio_clip_url": None,  # The URL of the audio clip where the anomaly was detected
+    },
+    "SISR": {
+        "frame_exists": False,  # Whether a super-resolution frame exists
+        "enhanced_frame_url": None,  # The URL of the enhanced frame
+    },
+    "SMS": {
+        "phone_number": None,  # The phone number to send an SMS to
+        "message": None,  # The message to send via SMS
+    },
 }
 
-
-"""
-    TODO
-    # Morning/night mode?(based on time???)
-    # if morning mode:
-    #         -> video will be the main classifiers
-    #         -> audio will be sent also
-    # if night mode:
-    #         -> audio will be the main classifiers
-    #         -> only audio will be sent
+# Function to update the anomaly information for a given anomaly type
+def update_anomaly_info(anomaly_type: str, info: AnomalyInfo) -> None:
+    ANOMALY_DICT[anomaly_type].update(info)
 
 
-    If video detect anomaly detected:
-        1- Trigger possible anomaly ✔
-        2- Save anomaly frame and enhance with ESRGAN ✔
-        3- Save next 5 video seconds ✔
-        4.
-            4.1 - Upload frame to blob ✔
-            4.2 - Upload video to blob ✔
-        5- Trigger SMS services:
-            5.1 - Send SMS Message to owner containing:
-                5.1.1 - Message text/ data-classificaiton?  ✔
-                5.1.2 - Message media ✔
-                5.1.3 - Date and other meta info ✔
+# Function to retrieve the anomaly information for a given anomaly type
+def get_anomaly_info(anomaly_type: str) -> AnomalyInfo:
+    return ANOMALY_DICT[anomaly_type]
 
 
-"""
+def upload_image(frame):
+    """Upload image to Azure BLOB"""
+
+    img_path_name = f"{Config.MEDIA_PATH}/frame.png"
+    cv2.imwrite(img_path_name, frame)  # convert frame to image
+
+    try:
+        logging.info("Frame provided, Calling ESRGAN API ...")
+        img_blob_url = apply_esragan(img_path_name)
+
+        update_anomaly_info(
+            "SISR", {"frame_exists": True, "enhanced_frame_url": img_blob_url}
+        )
+        logging.info("Image file uploaded ✔")
+        return True
+    except Exception as ex:
+        logging.warning("Unable to upload image file to Azure BLOB:", ex)
+        return False
+
+
+def upload_video(video, video_name, anomaly_name):
+    """Upload video to Azure BLOB"""
+    try:
+        logging.info("Uploading video file to Azure BLOB ...")
+        video_blob_url = upload_blob(video_name, is_video=True)
+        update_anomaly_info(
+            "video_anomaly",
+            {
+                "is_anomaly": True,
+                "name": anomaly_name,
+                "video_clip_url": video_blob_url,
+            },
+        )
+        logging.info("Video file uploaded ✔")
+        return True
+    except Exception as ex:
+        logging.info("Unable to upload video file to Azure BLOB:" + ex)
+        return False
+
+
+def upload_media(frame, video, video_name, anomaly_name):
+    is_image_uploaded = False  # Will be true if img is uploaded to cloud
+    is_video_uploaded = False  # Will be true if video is uploaded to cloud
+
+    if frame.any():
+        is_image_uploaded = upload_image(frame)
+
+    if video:
+        is_video_uploaded = upload_video(video, video_name, anomaly_name)
+
+    return is_image_uploaded, is_video_uploaded
+
+
+def send_notification():
+    """Send notification to owner"""
+    logging.info("Sending notification to owner 🔔 ...")
+    notify_owner(
+        notification_data={
+            "type": Config.NOTIFICATION_CONFIG["notification_type"],
+            "data": {
+                "location": "KL",
+                "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
+                "audio_classification": get_anomaly_info("audio_anomaly")["name"],
+                "video_classification": get_anomaly_info("video_anomaly")["name"],
+                "image_link": get_anomaly_info("video_anomaly")["img_blob_url"],
+                "video_link": get_anomaly_info("video_anomaly")["video_blob_url"],
+            },
+        }
+    )
 
 
 def trigger_red_flag_process(anomaly_name, frame=False, video=False, video_name=None):
@@ -77,58 +158,19 @@ def trigger_red_flag_process(anomaly_name, frame=False, video=False, video_name=
     Returns:
             None
     """
+    if NOTIFICATION_ON_GOING:
+        return
+
     global NOTIFICATION_ON_GOING
+    NOTIFICATION_ON_GOING = True
 
-    if not NOTIFICATION_ON_GOING:
-        is_image_uploaded = False  # Will be true if img is uploaded to cloud
-        is_video_uploaded = False  # Will be true if video is uploaded to cloud
-        NOTIFICATION_ON_GOING = True
-        print("Possible red flag 🚩:", anomaly_name)
-        img_path_name = f"{Config.MEDIA_PATH}/frame.png"
-        # convert frame to image
-        cv2.imwrite(img_path_name, frame)
-        # If video frame is provided
-        if frame.any():
-            try:
-                print("Frame provided, Calling ESRGAN API ...")
-                img_blob_url = apply_esragan(img_path_name)
-                ANOMALY_DICT["SISR"]["frame_exists"] = True
-                ANOMALY_DICT["SISR"]["enhanced_frame_url"] = img_blob_url
-                print("Image file uploaded ✔")
-                is_image_uploaded = True
-            except Exception as ex:
-                print("Unable to upload image file to Azure BLOB ❌:", ex)
-        # If video file is provided
-        if video:
-            try:
-                print("Uploading video file to Azure BLOB ...")
-                video_blob_url = upload_blob(video_name, is_video=True)
-                ANOMALY_DICT["video_anomaly"]["is_anomaly"] = True
-                ANOMALY_DICT["video_anomaly"]["name"] = anomaly_name
-                ANOMALY_DICT["video_anomaly"]["video_clip_url"] = video_blob_url
-                print("Video file uploaded ✔")
-                is_video_uploaded = True
-            except Exception as ex:
-                print("Unable to upload video file to Azure BLOB ❌:", ex)
-        # If both video and image are uploaded, notify owner
-        if is_video_uploaded and is_image_uploaded:
-            print("Sending notification to owner 🔔 ...")
-            notify_owner(
-                notification_data={
-                    "type": Config.NOTIFICATION_CONFIG["notification_type"],
-                    "data": {
-                        "location": "KL",
-                        "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
-                        "audio_classification": ANOMALY_DICT["audio_anomaly"]["name"],
-                        "video_classification": ANOMALY_DICT["video_anomaly"]["name"],
-                        "image_link": img_blob_url,
-                        "video_link": video_blob_url,
-                    },
-                }
-            )
+    logging.info("Possible red flag 🚩:" + anomaly_name)
+    is_image_uploaded, is_video_uploaded = upload_media(
+        frame, video, video_name, anomaly_name
+    )
 
-    else:
-        pass
+    if is_video_uploaded and is_image_uploaded:
+        send_notification()
 
 
 def notification_period_daemon():
@@ -144,10 +186,10 @@ def notification_period_daemon():
     """
 
     global NOTIFICATION_ON_GOING
-    print("Notification daemon on going...")
+    logging.info("Notification daemon on going...")
     tqdm(time.sleep(Config.NOTIFICATION_CONFIG["notification_interval"]))
     NOTIFICATION_ON_GOING = False
-    print("Notification daemon stopped", Config.NOTIFICATION_CONFIG)
+    logging.info("Notification daemon stopped" + Config.NOTIFICATION_CONFIG)
 
 
 def predict_on_live_audio():
@@ -165,12 +207,12 @@ def predict_on_live_audio():
     Returns:
         None
     """
-    print("predict_on_live_audio")
+    logging.info("predict_on_live_audio")
     # Load YAMNet model and class names
     yamnet = yamnet_model.yamnet_frames_model(params)
-    yamnet.load_weights("audio_classification_YAMNET/yamnet/yamnet.h5")
+    yamnet.load_weights("modules/audio_classification_YAMNET/yamnet/yamnet.h5")
     class_names = yamnet_model.class_names(
-        "audio_classification_YAMNET/yamnet/yamnet_class_map.csv"
+        "modules/audio_classification_YAMNET/yamnet/yamnet_class_map.csv"
     )
     # Set the length of the audio frames to 3 seconds
     frame_len = int(
@@ -196,7 +238,7 @@ def predict_on_live_audio():
         data = stream.read(frame_len, exception_on_overflow=False)
 
         # Process audio data and get predictions from the model
-        scores, melspec =  helpers._process_and_predict(yamnet, data)
+        scores, melspec = helpers._process_and_predict(yamnet, data)
         scores_np = np.array(scores)
         mean_scores = np.mean(scores, axis=0)
         # print('mean_scores = np.mean(scores, axis=0)', mean_scores)
@@ -262,15 +304,17 @@ def predict_on_live_video(
     else:
         video_reader = helpers._open_live_webcam()
 
-    video_writer, video_file_name = helpers._create_video_writer(video_reader, Config.MEDIA_PATH)
+    video_writer, video_file_name = helpers._create_video_writer(
+        video_reader, Config.MEDIA_PATH
+    )
 
-    print("[INFO] loading model...")
+    logging.info("[INFO] loading model...")
     net = cv2.dnn.readNetFromCaffe(
         ObjectDetection.PROTOTXT,
         ObjectDetection.MODEL,
     )
 
-    print("[INFO] starting video stream...")
+    logging.info("[INFO] starting video stream...")
     time.sleep(2.0)
 
     while True:
@@ -329,27 +373,54 @@ def predict_on_live_video(
                 ActionRecognition.LOW_CONFIDENCE_CLASS_TEXT_COLOR,
                 (0, 0, 0),  # Unused slot
             ]
-            font_size = 0.55
+            font_size = (
+                1.5 if Config.STREAMING_MODE == "IP" else 0.55
+            )  # If Ip cam increase font size
 
             sizes = [font_size for _ in range(len(top_5_class_names))]
+            frame_height, frame_width, _ = frame.shape
+
             for i, class_name in enumerate(top_5_class_names):
                 class_confidence = round(
                     predicted_labels_probabilities_averaged[top_5_indices[i]], 3
                 )
+                if i == 0 and class_confidence > 9:
+                    logging.info("Normal  (Confidence= 9.0)")
+                # else:
+                #     print('Nope', i == 0 and class_confidence > 9.0, class_confidence
+                #     ,
+                #     class_name,
+                #     class_name != "Normal"
+                #     )
                 class_name = f"{class_name}  (Confidence= {str(class_confidence)})"
+
+                # class_name = f"{class_name}  (Confidence= {str(class_confidence)})"
                 current_top_class_name = top_5_class_names[0]
-                # Define the positions for each class name
-                positions = [
-                    (10 * (i + 1), 30),
-                    (160 * (i + 1), 30),
-                    (10 * (i + 1), 400),
-                    (90 * (i + 1), 400),
-                    (2000 * (i + 1), 400),
-                ]
+                text_width, text_height = cv2.getTextSize(
+                    class_name, font, sizes[i], 2
+                )[0]
+                if i == 0:
+                    text_x = 10
+                    text_y = 40 + text_height
+                elif i == 1:
+                    text_x = frame_width - text_width - 10
+                    text_y = 10 + text_height
+                elif i == 2:
+                    text_x = 10
+                    text_y = frame_height - 50
+                elif i == 3:
+                    text_x = frame_width - text_width - 10
+                    text_y = frame_height - 50
+                elif i == 4:
+                    text_x = frame_width - text_width - 10
+                    text_y = (
+                        frame_height + 555
+                    )  # # Too LAZY, BUT WILL SET IT OFF THE SCREEN
+
                 cv2.putText(
                     frame,
                     class_name,
-                    positions[i],
+                    (text_x, text_y),
                     font,
                     sizes[i],
                     colors[i],
@@ -360,6 +431,7 @@ def predict_on_live_video(
                 if (
                     current_top_class_name in ActionRecognition.ANOMALY_CLASSES_NAME
                     and not NOTIFICATION_ON_GOING
+                    and class_confidence > ActionRecognition.ANOMALY_CLASS_CONFIDENCE
                 ):
                     video_writer.release()
                     # Asynchronous method call in Python: enabled threading
@@ -414,7 +486,7 @@ def predict_on_live_video(
                 label = "{}: {:.2f}%".format(
                     ObjectDetection.CLASSES[idx], confidence * 100
                 )
-                print("Object detected: ", label)
+                logging.info("Object detected: " + label)
                 # Draw a rectangle across the boundary of the object
                 cv2.rectangle(
                     frame,
