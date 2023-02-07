@@ -3,7 +3,9 @@ import cv2
 import numpy as np
 from datetime import datetime
 from collections import deque
+from .constants import Config
 import librosa
+
 
 def _create_live_video_window():
     cv2.namedWindow("Live Video", cv2.WINDOW_NORMAL)
@@ -26,9 +28,9 @@ def _open_video_file(file_path):
 
 
 def _open_live_webcam():
-    video_reader = cv2.VideoCapture(0, cv2.CAP_DSHOW)
-    video_reader.set(cv2.CAP_PROP_FRAME_WIDTH, 800)
-    video_reader.set(cv2.CAP_PROP_FRAME_HEIGHT, 600)
+    video_reader = cv2.VideoCapture(Config.STREAMING_MODE)
+    video_reader.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
+    video_reader.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
     return video_reader
 
 
