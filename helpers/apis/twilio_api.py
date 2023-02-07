@@ -2,33 +2,29 @@
      Twilio API service
 """
 from twilio.rest import Client
+from ..constants import Config
 
 # import geocoder
 import time
-
-# Set environment variables for your credentials
-# Read more at http://twil.io/secure
-account_sid = ""
-auth_token = ""
-
-FROM_PHONE_NUMBER = ""
-TO_PHONE_NUMBER = ""
 
 
 def make_call(client, template_url):
     call = client.calls.create(
         url=template_url,
-        to=TO_PHONE_NUMBER,
-        from_=FROM_PHONE_NUMBER,
+        to=Config.TO_PHONE_NUMBER,
+        from_=Config.FROM_PHONE_NUMBER,
     )
 
     print(call.sid)
 
 
 def send_sms(client: object, message_template: callable, message_data: dict) -> None:
-
+    print(message_template(message_data))
     message = client.messages.create(
-        body=message_template(message_data), from_=FROM_PHONE_NUMBER, to=TO_PHONE_NUMBER
+        body=message_template(message_data),
+        from_=Config.FROM_PHONE_NUMBER,
+        to=Config.TO_PHONE_NUMBER,
+        messaging_service_sid=Config.MESSAGE_SERVICE_ID,
     )
 
     return message.sid
@@ -37,13 +33,13 @@ def send_sms(client: object, message_template: callable, message_data: dict) -> 
 def simple_message_template_a(data):
     return f""" 
         An anomaly alert! ⚠
-        Time: { data['time'] }
-        Location: { data['location'] }
-        Anomaly Audio classification: { data['audio_classification'] }
-        Anomaly Video classification: { data['video_classification'] }
+        Time: { data.get('time', 'N/A') }
+        Location: { data.get('location', 'N/A') }
+        Anomaly Audio classification: { data.get('audio_classification', 'N/A')}
+        Anomaly Video classification: { data.get('video_classification', 'N./A') }
         Check evidence here:
-        Image: { data['image_link'] }
-        Video: { data['video_link'] }
+        Image: { data.get('image_link', 'N/A') }
+        Video: { data.get('video_link', 'N/A') }
         Please take necessary actions and contact us if you have any questions or concerns. 
     """
 
@@ -59,17 +55,26 @@ def simple_message_template_b(data):
     """
 
 
-def notify_owner(notification_data: object = {"type": "sms", "data": {""}}):
+def notify_owner(
+    notification_data={
+        "type": "sms",
+        "data": {
+            "location": "San Francisco",
+            "time": "1 PM",
+            "audio_classification": "None",
+            "video_classification": "None",
+            "image_link": "N/A",
+            "video_link": "N/A",
+        },
+    }
+):
     try:
         print("notification_data", notification_data)
-        client = Client(account_sid, auth_token)
-        print("A")
-        print(simple_message_template_a(notification_data["data"]))
-        print("B")
+        client = Client(Config.ACCOUNT_SID, Config.AUTH_TOKEN)
         if notification_data["type"] == "sms":
             send_sms(
                 client=client,
-                message_template=simple_message_template_a,
+                message_template=simple_message_template_b,
                 message_data=notification_data["data"],
             )
         elif notification_data["type"] == "call":
