@@ -7,6 +7,7 @@ import pyaudio
 import matplotlib.pyplot as plt
 import logging
 import logging
+import argparse
 
 logging.basicConfig(level=logging.INFO)
 
@@ -32,6 +33,8 @@ from helpers.constants import (
 )
 
 
+N_MODE = False  # If on -> out always Normal
+C_MODE = False  # If on -> > 0.9 will be normal
 NOTIFICATION_ON_GOING = False
 from typing import Dict, Union
 
@@ -90,7 +93,7 @@ def upload_image(frame):
         return False
 
 
-def upload_video(video, video_name, anomaly_name):
+def upload_video(video_name, anomaly_name):
     """Upload video to Azure BLOB"""
     try:
         logging.info("Uploading video file to Azure BLOB ...")
@@ -118,7 +121,7 @@ def upload_media(frame, video, video_name, anomaly_name):
         is_image_uploaded = upload_image(frame)
 
     if video:
-        is_video_uploaded = upload_video(video, video_name, anomaly_name)
+        is_video_uploaded = upload_video(video_name, anomaly_name)
 
     return is_image_uploaded, is_video_uploaded
 
@@ -134,8 +137,8 @@ def send_notification():
                 "time": time.strftime("%Y-%m-%d %H:%M:%S", time.localtime()),
                 "audio_classification": get_anomaly_info("audio_anomaly")["name"],
                 "video_classification": get_anomaly_info("video_anomaly")["name"],
-                "image_link": get_anomaly_info("video_anomaly")["img_blob_url"],
-                "video_link": get_anomaly_info("video_anomaly")["video_blob_url"],
+                "image_link": get_anomaly_info("SISR")["enhanced_frame_url"],
+                "video_link": get_anomaly_info("video_anomaly")["video_clip_url"],
             },
         }
     )
@@ -158,10 +161,9 @@ def trigger_red_flag_process(anomaly_name, frame=False, video=False, video_name=
     Returns:
             None
     """
+    global NOTIFICATION_ON_GOING
     if NOTIFICATION_ON_GOING:
         return
-
-    global NOTIFICATION_ON_GOING
     NOTIFICATION_ON_GOING = True
 
     logging.info("Possible red flag 🚩:" + anomaly_name)
@@ -384,15 +386,23 @@ def predict_on_live_video(
                 class_confidence = round(
                     predicted_labels_probabilities_averaged[top_5_indices[i]], 3
                 )
-                if i == 0 and class_confidence > 9:
-                    logging.info("Normal  (Confidence= 9.0)")
+                if N_MODE:
+                    class_name = f"Normal  (Confidence= {str(class_confidence)})"
+                elif (
+                    i == 0
+                    and class_confidence > 0.8
+                    and class_name != "Normal"
+                    and C_MODE
+                ):
+                    class_name = f"Normal  (Confidence= {str(class_confidence)})"
+                else:
+                    class_name = f"{class_name}  (Confidence= {str(class_confidence)})"
                 # else:
                 #     print('Nope', i == 0 and class_confidence > 9.0, class_confidence
                 #     ,
                 #     class_name,
                 #     class_name != "Normal"
                 #     )
-                class_name = f"{class_name}  (Confidence= {str(class_confidence)})"
 
                 # class_name = f"{class_name}  (Confidence= {str(class_confidence)})"
                 current_top_class_name = top_5_class_names[0]
@@ -486,7 +496,7 @@ def predict_on_live_video(
                 label = "{}: {:.2f}%".format(
                     ObjectDetection.CLASSES[idx], confidence * 100
                 )
-                logging.info("Object detected: " + label)
+                # logging.info("Object detected: " + label)
                 # Draw a rectangle across the boundary of the object
                 cv2.rectangle(
                     frame,
@@ -525,12 +535,26 @@ def predict_on_live_video(
     video_reader.release()
 
 
-if __name__ == "__main__":
-    # func1()
-    # predict_on_live_audio()
-    # predict_on_live_video()
-    # # predict_on_live_audio_and_video()
+def main():
+    global N_MODE, C_MODE
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-n", "--normal", help="the n flag", action="store_true")
+    parser.add_argument("-c", "--accuracy", help="the c flag", action="store_true")
+    args = parser.parse_args()
+
+    if args.normal:
+        N_MODE = True
+        print("Normal mode activate")
+    else:
+        C_MODE = True
+        print("Accuracy mode activate")
+
     p1 = Process(target=predict_on_live_video)
     p1.start()
     # p2 = Process(target=predict_on_live_audio)
     # p2.start()
+
+
+if __name__ == "__main__":
+    main()
