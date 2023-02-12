@@ -9,17 +9,7 @@ from azure.storage.blob import (
 from ..constants import Config
 
 
-def get_media_path(img_name) -> str:
-    """Find an media path in system and return it"""
-    # Get media directory
-    medias_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
-    # Get media path
-    media_path = os.path.join(medias_dir, img_name)
-    # Return media path
-    return media_path
-
-
-def upload_blob(filename: str, is_video: bool) -> str:
+def upload_blob(filename: str,  media_path: str, is_video: bool) -> str:
     """
     Upload a file to an Azure blob container and return the URL.
 
@@ -41,7 +31,7 @@ def upload_blob(filename: str, is_video: bool) -> str:
         blob_service_client = BlobServiceClient.from_connection_string(
             Config.CONNECT_STR
         )
-        upload_file_path = get_media_path(filename)
+        upload_file_path = media_path
         # Create a blob client using the local file name as the name for the blob
         blob_client = blob_service_client.get_blob_client(
             container=container_name, blob=filename
@@ -64,6 +54,7 @@ def upload_blob(filename: str, is_video: bool) -> str:
     except Exception as ex:
         print("Exception:")
         print(ex)
-        print("filename" + filename)
+        print("filename: " + filename)
+        raise ex
 
     # print("get_media_path", get_media_path('video'))
