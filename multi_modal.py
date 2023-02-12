@@ -33,8 +33,6 @@ from helpers.constants import (
 )
 
 
-N_MODE = False  # If on -> out always Normal
-C_MODE = False  # If on -> > 0.9 will be normal
 NOTIFICATION_ON_GOING = False
 from typing import Dict, Union
 
@@ -73,6 +71,15 @@ def get_anomaly_info(anomaly_type: str) -> AnomalyInfo:
     return ANOMALY_DICT[anomaly_type]
 
 
+def get_media_path(media_name) -> str:
+    """Find an media path in system and return it"""
+    # Get media directory
+    medias_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "outputs")
+    # Get media path
+    media_path = os.path.join(medias_dir, media_name)
+    # Return media path
+    return media_path
+
 def upload_image(frame):
     """Upload image to Azure BLOB"""
 
@@ -97,7 +104,8 @@ def upload_video(video_name, anomaly_name):
     """Upload video to Azure BLOB"""
     try:
         logging.info("Uploading video file to Azure BLOB ...")
-        video_blob_url = upload_blob(video_name, is_video=True)
+        media_path = get_media_path(video_name)
+        video_blob_url = upload_blob(video_name, media_path, is_video=True)
         update_anomaly_info(
             "video_anomaly",
             {
@@ -106,10 +114,11 @@ def upload_video(video_name, anomaly_name):
                 "video_clip_url": video_blob_url,
             },
         )
-        logging.info("Video file uploaded ✔")
+        logging.info("Video file uploaded ✔:" + video_blob_url)
         return True
     except Exception as ex:
-        logging.info("Unable to upload video file to Azure BLOB:" + ex)
+        logging.info("Unable to upload video file to Azure BLOB:")
+        print(ex)
         return False
 
 
@@ -277,6 +286,8 @@ def predict_on_live_video(
     video_file_path: str = None,
     output_file_path: str = None,
     window_size: int = 25,
+    N_MODE: bool = False,
+    C_MODE: bool = False
 ) -> None:
     """
     This function uses a trained model to predict on live video from the default webcam or a provided video file.
@@ -536,21 +547,21 @@ def predict_on_live_video(
 
 
 def main():
-    global N_MODE, C_MODE
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--normal", help="the n flag", action="store_true")
     parser.add_argument("-c", "--accuracy", help="the c flag", action="store_true")
+    video_kwargs = {'video_file_path': None, 'output_file_path': None, 'window_size': 25, 'C_MODE': False, 'N_MODE': False}
     args = parser.parse_args()
 
     if args.normal:
-        N_MODE = True
+        video_kwargs.update({'N_MODE': True})
         print("Normal mode activate")
     else:
-        C_MODE = True
+        video_kwargs.update({'C_MODE': True})
         print("Accuracy mode activate")
 
-    p1 = Process(target=predict_on_live_video)
+    p1 = Process(target=predict_on_live_video, kwargs=video_kwargs)
     p1.start()
     # p2 = Process(target=predict_on_live_audio)
     # p2.start()
