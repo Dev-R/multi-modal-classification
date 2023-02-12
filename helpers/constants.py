@@ -1,6 +1,10 @@
 import os
 import numpy as np
 import webcolors
+import os
+from dotenv import load_dotenv, find_dotenv
+import os
+load_dotenv(find_dotenv())
 
 
 class ActionRecognition:
@@ -74,21 +78,21 @@ class Config:
     NOTIFICATION_CONFIG = {"notification_type": "sms", "notification_interval": 60 * 2}
 
     # SMS and Notifications
-    TO_PHONE_NUMBER = ""
-    FROM_PHONE_NUMBER = ""
+    TO_PHONE_NUMBER = os.environ.get('TO_PHONE_NUMBER')
+    FROM_PHONE_NUMBER = os.environ.get('FROM_PHONE_NUMBER')
 
     # Twilio Config
     # Read more at http://twil.io/secure
-    ACCOUNT_SID = ""
-    AUTH_TOKEN = ""
-    MESSAGE_TEMPLATE = "simple_message_template_b"
-    MESSAGE_SERVICE_ID = ""
+    ACCOUNT_SID = os.environ.get('ACCOUNT_SID')
+    AUTH_TOKEN = os.environ.get('AUTH_TOKEN')
+    MESSAGE_TEMPLATE = os.environ.get('MESSAGE_TEMPLATE')
+    MESSAGE_SERVICE_ID = os.environ.get('MESSAGE_SERVICE_ID')
 
     # Azure BLOB Config
-    CONNECT_STR = ""  # Azure Connection String
-    IMAGE_CONTAINER_NAME = "ima-uploads"
-    VIDEO_CONTAINER_NAME = "video-uploads"
-    AZURE_STORGE_ACCOUNT = "multimodalmedia"
+    CONNECT_STR = os.environ.get('CONNECT_STR')  # Azure Connection String
+    IMAGE_CONTAINER_NAME = os.environ.get('IMAGE_CONTAINER_NAME')
+    VIDEO_CONTAINER_NAME = os.environ.get('VIDEO_CONTAINER_NAME')
+    AZURE_STORGE_ACCOUNT = os.environ.get('AZURE_STORGE_ACCOUNT')
 
 
 
