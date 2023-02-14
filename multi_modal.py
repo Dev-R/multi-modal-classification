@@ -80,6 +80,7 @@ def get_media_path(media_name) -> str:
     # Return media path
     return media_path
 
+
 def upload_image(frame):
     """Upload image to Azure BLOB"""
 
@@ -218,7 +219,7 @@ def predict_on_live_audio():
     Returns:
         None
     """
-    logging.info("predict_on_live_audio")
+    logging.info("Audio classification in progress......")
     # Load YAMNet model and class names
     yamnet = yamnet_model.yamnet_frames_model(params)
     yamnet.load_weights("modules/audio_classification_YAMNET/yamnet/yamnet.h5")
@@ -254,7 +255,10 @@ def predict_on_live_audio():
         mean_scores = np.mean(scores, axis=0)
         # print('mean_scores = np.mean(scores, axis=0)', mean_scores)
         top_class_indices = np.argsort(mean_scores)[::-1][:TOP_N]
-
+        # Add anomaly name to global dict
+        update_anomaly_info(
+            "audio_anomaly", {"audio_clip_url": "", "name": top_class_indices[0]}
+        )
         # Get the top predictions
         # Visualize the mel spectrogram of the audio
         plt.subplot(3, 1, 1)
@@ -277,7 +281,6 @@ def predict_on_live_audio():
         # Label the TOP_N classes.
         yticks = range(0, TOP_N, 1)
         plt.yticks(yticks, [class_names[top_class_indices[x]] for x in yticks])
-
         plt.pause(0.001)
         plt.show()
 
@@ -287,7 +290,8 @@ def predict_on_live_video(
     output_file_path: str = None,
     window_size: int = 25,
     N_MODE: bool = False,
-    C_MODE: bool = False
+    C_MODE: bool = False,
+    STREAMING_MODE: str = "ip",
 ) -> None:
     """
     This function uses a trained model to predict on live video from the default webcam or a provided video file.
@@ -327,7 +331,7 @@ def predict_on_live_video(
         ObjectDetection.MODEL,
     )
 
-    logging.info("[INFO] starting video stream...")
+    logging.info("[INFO] Video classification in progress......")
     time.sleep(2.0)
 
     while True:
@@ -387,7 +391,7 @@ def predict_on_live_video(
                 (0, 0, 0),  # Unused slot
             ]
             font_size = (
-                1.5 if Config.STREAMING_MODE == "IP" else 0.55
+                1.5 if STREAMING_MODE == "IP" else 0.55
             )  # If Ip cam increase font size
 
             sizes = [font_size for _ in range(len(top_5_class_names))]
@@ -397,7 +401,7 @@ def predict_on_live_video(
                 class_confidence = round(
                     predicted_labels_probabilities_averaged[top_5_indices[i]], 3
                 )
-                if N_MODE:
+                if N_MODE and i == 0:
                     class_name = f"Normal  (Confidence= {str(class_confidence)})"
                 elif (
                     i == 0
@@ -527,7 +531,6 @@ def predict_on_live_video(
                     ObjectDetection.COLORS[idx],
                     2,
                 )
-
         # Writing The Frame
         video_writer.write(frame)
         cv2.namedWindow("Live Video", cv2.WINDOW_NORMAL)
@@ -550,16 +553,34 @@ def main():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--normal", help="the n flag", action="store_true")
+    parser.add_argument(
+        "-i", "--ip", help="stream video with IP camers", action="store_true"
+    )
     parser.add_argument("-c", "--accuracy", help="the c flag", action="store_true")
-    video_kwargs = {'video_file_path': None, 'output_file_path': None, 'window_size': 25, 'C_MODE': False, 'N_MODE': False}
+    video_kwargs = {
+        "video_file_path": 'video.mp4',
+        "output_file_path": None,
+        "window_size": 25,
+        "C_MODE": False,
+        "N_MODE": False,
+        "STREAMING_MODE": 0, # 0, indicates web cam slot
+    }
     args = parser.parse_args()
 
-    if args.normal:
-        video_kwargs.update({'N_MODE': True})
-        print("Normal mode activate")
+    if args.ip:
+        video_kwargs.update({"STREAMING_MODE": 'IP'})
+        logging.info("IP Camera mode activated")
     else:
-        video_kwargs.update({'C_MODE': True})
-        print("Accuracy mode activate")
+        logging.info("Web Camera mode activated as default")
+
+    if args.normal:
+        video_kwargs.update({"N_MODE": True})
+        logging.info("Normal mode activate")
+
+
+    if args.accuracy:
+        video_kwargs.update({"C_MODE": True})
+        logging.info("Accuracy mode activate")
 
     p1 = Process(target=predict_on_live_video, kwargs=video_kwargs)
     p1.start()
