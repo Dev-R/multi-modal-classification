@@ -27,8 +27,9 @@ def _open_video_file(file_path):
     return video_reader
 
 
-def _open_live_webcam():
-    video_reader = cv2.VideoCapture(Config.STREAMING_MODE)
+def _open_live_webcam(streaming_mode):
+    print('Config.STREAMING_CONFIG[streaming_mode]', Config.STREAMING_CONFIG[streaming_mode])
+    video_reader = cv2.VideoCapture(Config.STREAMING_CONFIG[streaming_mode])
     video_reader.set(cv2.CAP_PROP_FRAME_WIDTH, 1920)
     video_reader.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
     return video_reader

@@ -8,6 +8,15 @@ from ..constants import Config
 import time
 
 
+# PRESENTATION_CONTACTS = {
+# }
+
+SIMPLE_CONTACTS = {
+}
+
+PHONE_NUMBERS = [i for i in SIMPLE_CONTACTS.values()]
+
+
 def make_call(client, template_url):
     call = client.calls.create(
         url=template_url,
@@ -18,12 +27,14 @@ def make_call(client, template_url):
     print(call.sid)
 
 
-def send_sms(client: object, message_template: callable, message_data: dict) -> None:
+def send_sms(
+    client: object, to_phone_number: str, message_template: callable, message_data: dict
+) -> None:
     print(message_template(message_data))
     message = client.messages.create(
         body=message_template(message_data),
         from_=Config.FROM_PHONE_NUMBER,
-        to=Config.TO_PHONE_NUMBER,
+        to=to_phone_number,
         messaging_service_sid=Config.MESSAGE_SERVICE_ID,
     )
 
@@ -72,11 +83,13 @@ def notify_owner(
         print("notification_data", notification_data)
         client = Client(Config.ACCOUNT_SID, Config.AUTH_TOKEN)
         if notification_data["type"] == "sms":
-            send_sms(
-                client=client,
-                message_template=simple_message_template_b,
-                message_data=notification_data["data"],
-            )
+            for number in PHONE_NUMBERS:
+                send_sms(
+                    client=client,
+                    to_phone_number=number,
+                    message_template=simple_message_template_b,
+                    message_data=notification_data["data"],
+                )
         elif notification_data["type"] == "call":
             make_call(
                 client=client, template_url="http://demo.twilio.com/docs/voice.xml"

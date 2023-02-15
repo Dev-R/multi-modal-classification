@@ -3,7 +3,7 @@ import replicate
 # API documentation: https://replicate.com/docs/get-started/python
 # Model documentation: https://replicate.com/nightmareai/real-esrgan/api
 
-TOKEN = "4d7009bbb7c63b6cc9a977d9d614f1050429e4a4"
+TOKEN = ""
 
 
 def get_model_client(token):

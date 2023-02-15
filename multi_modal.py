@@ -291,7 +291,7 @@ def predict_on_live_video(
     window_size: int = 25,
     N_MODE: bool = False,
     C_MODE: bool = False,
-    STREAMING_MODE: str = "ip",
+    STREAMING_MODE: str = "",
 ) -> None:
     """
     This function uses a trained model to predict on live video from the default webcam or a provided video file.
@@ -319,7 +319,7 @@ def predict_on_live_video(
     if video_file_path:
         video_reader = helpers._open_video_file(video_file_path)
     else:
-        video_reader = helpers._open_live_webcam()
+        video_reader = helpers._open_live_webcam(STREAMING_MODE)
 
     video_writer, video_file_name = helpers._create_video_writer(
         video_reader, Config.MEDIA_PATH
@@ -554,29 +554,37 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("-n", "--normal", help="the n flag", action="store_true")
     parser.add_argument(
-        "-i", "--ip", help="stream video with IP camers", action="store_true"
+        "-i", "--ip", help="stream video with IP camera", action="store_true"
     )
     parser.add_argument("-c", "--accuracy", help="the c flag", action="store_true")
+    parser.add_argument(
+        "-v", "--video", help="stream a local video", action="store_true"
+    )
     video_kwargs = {
-        "video_file_path": 'video.mp4',
         "output_file_path": None,
         "window_size": 25,
         "C_MODE": False,
         "N_MODE": False,
-        "STREAMING_MODE": 0, # 0, indicates web cam slot
+        "STREAMING_MODE": "Local",  # 0, indicates web cam slot
     }
     args = parser.parse_args()
 
-    if args.ip:
-        video_kwargs.update({"STREAMING_MODE": 'IP'})
+    if args.video:
+        logging.info("Local Video mode activated")
+        video_kwargs.update(
+            {
+                "video_file_path": "video.mp4",
+            }
+        )
+    elif args.ip:
         logging.info("IP Camera mode activated")
+        video_kwargs.update({"STREAMING_MODE": "IP"})
     else:
         logging.info("Web Camera mode activated as default")
 
     if args.normal:
         video_kwargs.update({"N_MODE": True})
         logging.info("Normal mode activate")
-
 
     if args.accuracy:
         video_kwargs.update({"C_MODE": True})
