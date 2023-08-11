@@ -6,7 +6,7 @@ This Python script performs real-time audio and video processing using various d
 
 ## Architecture 
 <p align="center">
-    <img src="./assets/block.png" alt="drawing" height="auto" width="50%"/>
+    <img src="./assets/block.png" alt="drawing" height="auto" width="auto"/>
 </p>
 
 ### Key Features
