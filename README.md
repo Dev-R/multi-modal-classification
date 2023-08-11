@@ -6,10 +6,10 @@ This Python script performs real-time audio and video processing using various d
 
 ## Architecture 
 <p align="center">
-    <img src="https://i.ibb.co/LvzSbDY/img-1.png" alt="drawing" height="auto" width="auto"/>
+    <img src="./assets/block.png" alt="drawing" height="auto" width="auto"/>
 </p>
 <p align="center">
-    <img src="https://i.ibb.co/JHWpBHG/img-2.png" alt="drawing" height="auto" width="auto"/>
+    <img src="./assets/flow.png" alt="drawing" height="auto" width="auto"/>
 </p>
 
 
