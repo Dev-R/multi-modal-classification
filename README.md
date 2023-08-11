@@ -6,12 +6,35 @@ This Python script performs real-time audio and video processing using various d
 
 ## Architecture 
 <p align="center">
-    <img src="./assets/block.png" alt="drawing" height="auto" width="auto"/>
+    <img src="./assets/block.png" alt="drawing" height="auto" width="50%"/>
 </p>
+
+### Key Features
+- Video Analysis: The system uses object detection (Single Frame CNN) to identify and track various objects in real-time. It can detect a wide range of objects such as people, vehicles, animals, and more.
+
+- Audio Analysis: The audio classification (YAMNet) module can detect specific audio events, such as explosions or gunshots, to enhance security monitoring.
+
+- Anomaly Detection: The system combines both of the above feature to increase accuracy when it comes to anomaly detection,
+
+- Real-time Notifications: The system is equipped to send real-time notifications and alerts via SMS using the Twilio API. This ensures that you stay informed of critical events as they happen.
+
+- Cloud Integration: The AI Security Surveillance System integrates with Azure BLOB storage for secure storage and management of surveillance media, including images and videos.
+
+
+### How It Works
 <p align="center">
     <img src="./assets/flow.png" alt="drawing" height="auto" width="auto"/>
 </p>
 
+-  Video Analysis: The system captures live video streams from local webcams or IP cameras. It then uses object detection models to identify and track objects within the video frames.
+
+- Audio Analysis: Simultaneously, the system captures audio input and classifies audio events using the YAMNet model. It can recognize specific audio patterns associated with security threats.
+
+- Anomaly Detection: The AI-driven anomaly detection module continuously analyzes both video and audio data for unusual activities. When an anomaly is detected, it triggers a red flag process.
+
+- Real-time Notifications: If an anomaly is detected and confirmed, the system sends real-time SMS notifications to alert you about the potential security threat.
+
+- Cloud Storage: Media files, such as images and videos, are securely stored in Azure BLOB storage for future reference and analysis.
 
 ## Project Setup
 
